@@ -1,5 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use super::models::ResumeRequest;
+use super::model::ResumeRequest;
 use super::generator::generate_resume;
 
 pub async fn generate_resume_handler(payload: web::Json<ResumeRequest>) -> impl Responder {

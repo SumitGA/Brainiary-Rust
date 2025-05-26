@@ -1,1 +1,2 @@
 OPENAPI_API_KEY=xxxxxxx-------
+DATABASE_URL=postgres://username:password@localhost/your_db_name

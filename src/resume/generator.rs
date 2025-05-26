@@ -1,4 +1,4 @@
-use super::models::ResumeRequest;
+use super::model::ResumeRequest;
 use reqwest::Client;
 use std::env;
 
