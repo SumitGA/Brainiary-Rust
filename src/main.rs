@@ -31,7 +31,7 @@ async fn main() -> std::io::Result<()> {
             .max_age(3600)
         )
         .app_data(web::Data::new(pool.clone()))
-        .route("/api/v1/resume", web::post().to(resume::handlers::generate_resume_handler))
+        .configure(resume::handler::init_routes)
         .configure(auth::handler::init_routes)
     })
     .bind(("0.0.0.0", 8000))?
