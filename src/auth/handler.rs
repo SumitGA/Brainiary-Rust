@@ -3,17 +3,9 @@ use diesel::prelude::*;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use jsonwebtoken::{encode, Header, EncodingKey};
 use serde::{Deserialize, Serialize};
-
-use crate::auth::model::{RegisterInput, LoginInput, AuthResponse, User};
-use crate::auth::generator::NewUser;
+use crate::auth::model::{RegisterInput, LoginInput, AuthenticatedUser, User, NewUser, Claims};
 use crate::schema::users::dsl::*;
 use crate::db::PgPool;
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-    sub: String,
-    exp: usize,
-}
 
 pub async fn register_user(
     pool: web::Data<PgPool>,
@@ -29,7 +21,22 @@ pub async fn register_user(
         .get_result::<User>(conn);
 
     match result {
-        Ok(user) => HttpResponse::Ok().json(user),
+        Ok(user) => {
+            let claims = Claims {
+                sub: user.email.clone(),
+                role: user.role.clone(),
+                exp: (chrono::Utc::now() + chrono::Duration::days(1)).timestamp() as usize, 
+            };
+            let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret".into());
+            let token = encode(
+                &Header::default(),
+                &claims,
+                &EncodingKey::from_secret(secret.as_ref()),
+            ).expect("JWT token creation failed");
+
+            let auth_response = AuthenticatedUser::from_user(&user, token);
+            HttpResponse::Ok().json(auth_response)
+        }
         Err(err) => HttpResponse::InternalServerError().body(format!("Error: {}", err)),
     }
 }
@@ -49,6 +56,7 @@ pub async fn login_user(
             if verify(&input.password, &user.hashed_password).unwrap_or(false) {
                 let claims = Claims {
                     sub: user.email.clone(),
+                    role: user.role.clone(),
                     exp: (chrono::Utc::now() + chrono::Duration::days(1)).timestamp() as usize,
                 };
                 let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret".into());
@@ -58,7 +66,7 @@ pub async fn login_user(
                     &EncodingKey::from_secret(secret.as_ref()),
                 )
                 .expect("JWT token creation failed");
-                let auth_response = AuthResponse::from_user(&user, token);
+                let auth_response = AuthenticatedUser::from_user(&user, token);
 
                 HttpResponse::Ok().json(auth_response)
             } else {
